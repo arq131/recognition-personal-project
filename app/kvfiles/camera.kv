@@ -1,0 +1,45 @@
+<Camera>:
+	GridLayout:
+		rows: 3
+		columns: 1
+
+		Label:
+			id: title
+			height: 20
+			size_hint_y: None
+			text: 'Testing camera'
+		KivyCamera:
+			id: cam
+
+		BoxLayout:
+			orientation: "vertical"
+
+			Button:
+				id: start
+				status: False
+				size_hint: 1, .25
+				text: "Start Camera"
+				color: 0, 1, 0, 1
+				on_press: root.dostart()
+				border_color: 1, 0, 0, 1
+
+			Button:
+				id: record
+				size_hint: 1, .25
+				color: 0, 0, 1, 1
+				text: "Record"
+				on_press: root.dorecord()
+
+			Button:
+				id: exit
+				size_hint: 1, .25
+				text: "Quit"
+				color: 1, 0, 0, 1
+				on_press: root.doexit()
+
+			AnchorLayout:
+				TextInput:
+					id: name
+					size_hint: 1, None
+					hint_text: 'Enter a name'
+					color: 0, 0, 0, .2
