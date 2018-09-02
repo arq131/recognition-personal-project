@@ -1,6 +1,10 @@
 import kivy.core.text
 import cv2
 import os
+import time
+
+from datetime import datetime
+from functools import partial
 
 from kivy.app import App
 from kivy.base import EventLoop
@@ -17,9 +21,12 @@ image_count = 0
 record_status = False
 inputs = ''
 class KivyCamera(Image):
+
 	def __init__(self, **kwargs):
 		super(KivyCamera, self).__init__(**kwargs)
 		self.capture = None
+		self.start = None				# Start timer
+		self.record_timer = False 		# Record timer 
 
 	def start(self, capture, fps=30):
 		self.capture = capture
@@ -27,7 +34,7 @@ class KivyCamera(Image):
 
 	def stop(self):
 		Clock.unschedule(self.update)
-		self.canvas.clear()
+		self.texture = Texture.create()
 		self.capture = None
 
 	def update(self, dt):
@@ -37,20 +44,13 @@ class KivyCamera(Image):
 		ret, frame = self.capture.read()
 
 		texture = self.texture
-		# Example for screen capture. 
-		# Use this to save face image to a file
-		#cv2.COLOR_BGR2GRAY
-		if record_status and (inputs != ''):
-			# Convert image to greyscale
-			img = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-			
-			inputs = inputs.replace(' ', '_')
 
-			# If there's no existing directory for the user's name
-			if not os.path.isdir('test-data/' + str(inputs)):
-				os.mkdir('test-data/' + str(inputs))
-			cv2.imwrite('test-data/' + str(inputs) + '/' + str(image_count) + '.png', img)
-			image_count = image_count + 1
+		# Start recording for 10 seconds, at burst of .5 each (20 total)
+		if record_status and inputs != '' and not record_timer :
+			self.start = time.time()
+			image_count = 0
+			Clock.schedule_interval(partial(self.save_images, frame), 0.5)
+			self.record_timer = True
 		
 		# Currently ignore video recording
 		if ret:
@@ -61,7 +61,31 @@ class KivyCamera(Image):
 				texture.flip_vertical()
 			texture.blit_buffer(frame.tobytes(), colorfmt='bgr')
 			self.canvas.ask_update()
+
+	def save_images(self, frame, *args):
+		global record_status
+		global inputs
+		global image_count
+		if self.capture == None or (time.time() - self.start > 10):
+			self.record_timer = False
+			return false
 		
+		#cv2.COLOR_BGR2GRAY
+		# Convert image to greyscale
+		img = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+		
+		inputs = inputs.replace(' ', '_').lower()
+
+		# If there's no existing directory for the test data folder, make it.
+		if not os.path.isdir('test-data/'):
+			os.mkdir('test-data')
+
+		# If there's no existing directory for the user, make it.
+		if not os.path.isdir('test-data/' + str(inputs)):
+			os.mkdir('test-data/' + str(inputs))
+
+		cv2.imwrite('test-data/' + str(inputs) + '/' + str(image_count) + '.png', img)
+		image_count = image_count + 1
 
 capture = None
 
@@ -72,7 +96,7 @@ class Camera(BoxLayout):
 	def dostart(self, *args):
 		global capture
 		global inputs
-		capture = cv2.VideoCapture(0)
+		
 		
 
 		# Change the settings on the button
@@ -80,11 +104,17 @@ class Camera(BoxLayout):
 			self.ids.start.text = 'Stop Camera'
 			self.ids.start.color = [1, 0, 0, 1]
 			self.ids.start.status = True
+
+			# Start the camera
+			capture = cv2.VideoCapture(0)
 			self.ids.cam.start(capture)
 		else:
 			self.ids.start.text = 'Start Camera'
 			self.ids.start.color = [0, 1, 0, 1]
 			self.ids.start.status = False
+
+			capture.release()
+			cv2.destroyAllWindows()
 			self.ids.cam.stop()
 
 
