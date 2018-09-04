@@ -21,7 +21,6 @@
 				text: "Start Camera"
 				color: 0, 1, 0, 1
 				on_press: root.dostart()
-				border_color: 1, 0, 0, 1
 
 			Button:
 				id: record
@@ -37,9 +36,25 @@
 				color: 1, 0, 0, 1
 				on_press: root.doexit()
 
-			AnchorLayout:
-				TextInput:
-					id: name
-					size_hint: 1, None
-					hint_text: 'Enter a name'
-					color: 0, 0, 0, .2
+			BoxLayout:
+				orientation: "vertical"
+				padding: 5
+				spacing: 8
+				Label:
+					id: name_label
+					text: 'Username'
+					text_size: self.size
+					halign: 'left'
+					valign: 'bottom'
+					color: 0, 0, 0, 1
+					size_hint: 1, .8
+				
+				AnchorLayout:
+					anchor_x: 'center'
+					anchor_y: 'top'
+					
+					TextInput:
+						id: name
+						size_hint: 1, .50
+						hint_text: 'Enter a name'
+						color: 0, 0, 0, 1

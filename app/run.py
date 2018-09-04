@@ -20,40 +20,62 @@ from kivy.uix.button import Button
 image_count = 0
 record_status = False
 inputs = ''
+haar_path = 'haarcascades/haarcascade_frontalface_default.xml'
+
 class KivyCamera(Image):
+	
 
 	def __init__(self, **kwargs):
 		super(KivyCamera, self).__init__(**kwargs)
 		self.capture = None
-		self.start = None				# Start timer
-		self.record_timer = False 		# Record timer 
-
-	def start(self, capture, fps=30):
-		self.capture = capture
-		Clock.schedule_interval(self.update, 1.0 / fps)
+		self.start_timer = None
+		self.record_timer = False
+		self.faceCascade = cv2.CascadeClassifier(haar_path)
 
 	def stop(self):
 		Clock.unschedule(self.update)
 		self.texture = Texture.create()
 		self.capture = None
 
+		
+	def start(self, capture, fps=30):
+		self.capture = capture
+		Clock.schedule_interval(self.update, 1.0 / fps)
+
+	
 	def update(self, dt):
 		global record_status
 		global image_count
 		global inputs
+		
 		ret, frame = self.capture.read()
 
 		texture = self.texture
 
 		# Start recording for 10 seconds, at burst of .5 each (20 total)
-		if record_status and inputs != '' and not record_timer :
-			self.start = time.time()
+		if record_status and inputs != '' and not self.record_timer:
+			self.start_timer = time.time()
 			image_count = 0
 			Clock.schedule_interval(partial(self.save_images, frame), 0.5)
 			self.record_timer = True
 		
-		# Currently ignore video recording
+		# If there is a frame that is captured
 		if ret:
+
+			# Use Cascading facial recogition to detect the face of the image
+			gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+			faces = self.faceCascade.detectMultiScale(
+				gray,
+				scaleFactor = 1.2,
+				minNeighbors = 5,
+				minSize = (35, 35),
+				flags = cv2.CASCADE_SCALE_IMAGE
+				)
+			# Draw the rectangle around the face of the frame
+			for (x, y, w, h) in faces:
+   	 			cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+
+   	 		# Display the frame on the interface
 			texture = self.texture
 			w, h = frame.shape[1], frame.shape[0] # Width and height of frame
 			if not texture or texture.width != w or texture.height != h:
@@ -62,15 +84,21 @@ class KivyCamera(Image):
 			texture.blit_buffer(frame.tobytes(), colorfmt='bgr')
 			self.canvas.ask_update()
 
+
+	'''
+		When this method is called, this will start a timer for 10 seconds (or until the record button is stopped)
+		and record the image into a folder: test-data/[input-name]/[image-number].png
+	'''
 	def save_images(self, frame, *args):
 		global record_status
 		global inputs
 		global image_count
-		if self.capture == None or (time.time() - self.start > 10):
+
+		# Make the timer for 10 seconds
+		if self.capture == None or (time.time() - self.start_timer > 10):
 			self.record_timer = False
-			return false
+			return False
 		
-		#cv2.COLOR_BGR2GRAY
 		# Convert image to greyscale
 		img = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 		
@@ -97,8 +125,13 @@ class Camera(BoxLayout):
 		global capture
 		global inputs
 		
+		self.checkName = self.verify_name();
+		if not self.checkName:
+			print('There are no names being displayed')
+			return
 		
-
+		inputs = self.ids.name.text
+		
 		# Change the settings on the button
 		if not self.ids.start.status:
 			self.ids.start.text = 'Stop Camera'
@@ -107,18 +140,24 @@ class Camera(BoxLayout):
 
 			# Start the camera
 			capture = cv2.VideoCapture(0)
-			self.ids.cam.start(capture)
+			if capture != None:
+				self.ids.cam.start(capture)
+			else:
+				print('There are no cameras attached. Exiting...')
+				EventLoop.stop()
+
 		else:
 			self.ids.start.text = 'Start Camera'
 			self.ids.start.color = [0, 1, 0, 1]
 			self.ids.start.status = False
 
-			capture.release()
+			if capture != None:
+				capture.release()
 			cv2.destroyAllWindows()
+
 			self.ids.cam.stop()
 
-
-		inputs = self.ids.name.text
+		
 
 
 
@@ -143,6 +182,14 @@ class Camera(BoxLayout):
 
 	def name_click(self):
 		self.ids.name.text = ''
+
+	def verify_name(self):
+		name = self.ids.name.text
+		if (name == None) or (name == ''):
+			self.ids.name_label.text = 'Username - Please enter a username.'
+			self.ids.name_label.color = [1, 0, 0, 1]
+			return False
+		return True
 
 
 
